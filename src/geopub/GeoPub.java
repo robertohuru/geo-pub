@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package geojava;
+package geopub;
 
 import it.geosolutions.geoserver.rest.GeoServerRESTPublisher;
 import it.geosolutions.geoserver.rest.GeoServerRESTReader;
@@ -18,17 +18,17 @@ import org.apache.commons.io.FilenameUtils;
  *
  * @author Robert
  */
-public class GeoJava {
+public class GeoPub {
 
     GeoServerRESTPublisher geoServerRESTPublisher;
     GeoServerRESTReader geoServerRESTReader;
 
-    public GeoJava(String url, String user, String password) {
+    public GeoPub(String url, String user, String password) {
         geoServerRESTPublisher = new GeoServerRESTPublisher(url, user, password);
         try {
             geoServerRESTReader = new GeoServerRESTReader(url, user, password);
         } catch (MalformedURLException ex) {
-            Logger.getLogger(GeoJava.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(GeoPub.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -49,7 +49,7 @@ public class GeoJava {
             }
             geoServerRESTPublisher.publishShp(workspace, storename, layer, inputMap, georef, style);
         } catch (Exception ex) {
-            Logger.getLogger(GeoJava.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(GeoPub.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -61,7 +61,7 @@ public class GeoJava {
             geoServerRESTPublisher.publishGeoTIFF(workspace, storename, layer, inputMap, georef, GSResourceEncoder.ProjectionPolicy.REPROJECT_TO_DECLARED, style, null);
 
         } catch (Exception ex) {
-            Logger.getLogger(GeoJava.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(GeoPub.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -97,7 +97,7 @@ public class GeoJava {
         String configFile = args[4];
         Util util = new Util(configFile);
         if (util.isRunnable()) {
-            GeoJava geo = new GeoJava(util.getHostUrl(), util.getUser(), util.getPassword());
+            GeoPub geo = new GeoPub(util.getHostUrl(), util.getUser(), util.getPassword());
             boolean isStyle = (args.length == 7);
             if (isStyle) {
                 if (folder.isDirectory()) {
@@ -171,7 +171,7 @@ public class GeoJava {
         String style = util.getStyle();
         String projection = util.getProjection();
 
-        GeoJava geo = new GeoJava(util.getHostUrl(), util.getUser(), util.getPassword());
+        GeoPub geo = new GeoPub(util.getHostUrl(), util.getUser(), util.getPassword());
         if (geo.workspaceExist(workSpace) == false) {
             geo.createWorkSpace(workSpace);
         }
