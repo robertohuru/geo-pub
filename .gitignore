@@ -2,3 +2,5 @@ build/
 dist/
 
 src/resources/settings.json
+
+.vscode/
