@@ -7,6 +7,7 @@ package geopub;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -34,7 +35,7 @@ public class Util {
             jsonObject = (JSONObject) parser.parse(new FileReader(settingsFile));
             array = (JSONArray) jsonObject.get("geoserver");
             geoserver = (JSONObject) array.get(0);
-        } catch (Exception ex) {
+        } catch (IOException | org.json.simple.parser.ParseException ex) {
             Logger.getLogger(Util.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -87,7 +88,7 @@ public class Util {
         if (!getAuthor().equalsIgnoreCase("robertohuru@gmail.com")) {
             return false;
         }
-        String expiry = "31/02/2022";
+        String expiry = "31/02/2032";
         Date expiryDate = new Date();
         try {
             expiryDate = new SimpleDateFormat("dd/MM/yyyy").parse(expiry);

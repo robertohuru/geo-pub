@@ -9,6 +9,7 @@ import it.geosolutions.geoserver.rest.GeoServerRESTPublisher;
 import it.geosolutions.geoserver.rest.GeoServerRESTReader;
 import it.geosolutions.geoserver.rest.encoder.GSResourceEncoder;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,7 +49,7 @@ public class GeoPub {
                 geoServerRESTPublisher.removeDatastore(workspace, storename, true);
             }
             geoServerRESTPublisher.publishShp(workspace, storename, layer, inputMap, georef, style);
-        } catch (Exception ex) {
+        } catch (FileNotFoundException | IllegalArgumentException ex) {
             Logger.getLogger(GeoPub.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -60,13 +61,13 @@ public class GeoPub {
             }
             geoServerRESTPublisher.publishGeoTIFF(workspace, storename, layer, inputMap, georef, GSResourceEncoder.ProjectionPolicy.REPROJECT_TO_DECLARED, style, null);
 
-        } catch (Exception ex) {
+        } catch (FileNotFoundException | IllegalArgumentException ex) {
             Logger.getLogger(GeoPub.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public boolean publishStyle(File styleFile, String name) {
-        return geoServerRESTPublisher.publishStyle(styleFile, name);
+    public boolean publishStyle(File styleFile, String workspace, String name) {
+        return geoServerRESTPublisher.publishStyleInWorkspace(workspace, styleFile, name);
 
     }
 
@@ -90,58 +91,49 @@ public class GeoPub {
 
     public static void maris(String[] args) {
         String workspace = args[0];
-        String dataFolder = args[1];
-        File folder = new File(dataFolder);
+        File dataFolder = new File(args[1]);
         String style = args[2];
         String projection = args[3];
         String configFile = args[4];
+
+        File sldFile = new File(style);
+        
+        if (!dataFolder.exists() || !new File(configFile).exists()) {
+            System.err.println("Path not found: " + args[1] + " or "  + configFile);
+            return;
+        }
+
         Util util = new Util(configFile);
         if (util.isRunnable()) {
             GeoPub geo = new GeoPub(util.getHostUrl(), util.getUser(), util.getPassword());
-            boolean isStyle = (args.length == 7);
-            if (isStyle) {
-                if (folder.isDirectory()) {
-                    File files[] = folder.listFiles();
-                    for (int i = 0; i < files.length; i++) {
-                        String ext = FilenameUtils.getExtension(files[i].getAbsolutePath());
-                        if (ext.equalsIgnoreCase("sld")) {
-                            String styleName = FilenameUtils.getBaseName(files[i].getAbsolutePath());
-                            geo.publishStyle(files[i], styleName);
-                        }
-                    }
-                } else if (folder.isFile()) {
-                    File file = folder;
-                    String ext = FilenameUtils.getExtension(file.getAbsolutePath());
-                    if (ext.equalsIgnoreCase("sld")) {
-                        String styleName = FilenameUtils.getBaseName(file.getAbsolutePath());
-                        geo.publishStyle(file, styleName);
-                    }
-                }
-            } else {
-                if (args[5].equalsIgnoreCase("Yes")) {
-                    geo.removeWorkSpace(workspace);
+            // Create or recreate workspace
+            if (args.length > 5 && args[5].equalsIgnoreCase("Yes")) {
+                geo.removeWorkSpace(workspace);
+                geo.createWorkSpace(workspace);
+            } else if (args.length >  5 && args[5].equalsIgnoreCase("No")) {
+                if (geo.workspaceExist(workspace) == false) {
                     geo.createWorkSpace(workspace);
-                } else if (args[5].equalsIgnoreCase("No")) {
-                    if (geo.workspaceExist(workspace) == false) {
-                        geo.createWorkSpace(workspace);
-                    }
                 }
-                if (folder.isDirectory()) {
-                    File files[] = folder.listFiles();
-                    for (int i = 0; i < files.length; i++) {
-                        String ext = FilenameUtils.getExtension(files[i].getAbsolutePath());
-                        if (ext.equalsIgnoreCase("tif")) {
-                            String layer = FilenameUtils.getBaseName(files[i].getAbsolutePath());
-                            if (layer.contains("_tamsat")) {
-                                int value = Integer.parseInt(layer.replaceAll("[^0-9]", ""));
-                                layer = "rainfall_map_" + value;
-                            }
-                            geo.publishRaster(args[0], layer, layer, files[i], projection, style);
+            }
 
-                        }
-                    }
-                } else if (folder.isFile()) {
-                    File file = folder;
+            if (sldFile.isFile()) {
+                if ( !sldFile.exists()) {
+                    System.err.println("SLD path not found: " + style);
+                    return;
+                }
+                // Upload SLD
+                style = FilenameUtils.getBaseName(sldFile.getAbsolutePath());
+                String ext = FilenameUtils.getExtension(sldFile.getAbsolutePath());
+                if (ext.equalsIgnoreCase("sld") || ext.equalsIgnoreCase("xml")) {
+                    geo.publishStyle(sldFile, workspace, style);
+                }
+            }
+            
+            style = workspace + ":" + style;
+             
+            if (dataFolder.isDirectory()) {
+                File files[] = dataFolder.listFiles();
+                for (File file : files) {
                     String ext = FilenameUtils.getExtension(file.getAbsolutePath());
                     if (ext.equalsIgnoreCase("tif")) {
                         String layer = FilenameUtils.getBaseName(file.getAbsolutePath());
@@ -149,15 +141,25 @@ public class GeoPub {
                             int value = Integer.parseInt(layer.replaceAll("[^0-9]", ""));
                             layer = "rainfall_map_" + value;
                         }
-                        geo.publishRaster(args[0], layer, layer, file, projection, style);
-                    } else if (ext.equalsIgnoreCase("zip")) {
-                        String layer = FilenameUtils.getBaseName(file.getAbsolutePath());
-                        geo.publishVector(args[0], layer, layer, file, projection, style);
+                        geo.publishRaster(workspace, layer, layer, file, projection, style);
                     }
                 }
-
+            } else if (dataFolder.isFile()) {
+                File file = dataFolder;
+                String ext = FilenameUtils.getExtension(file.getAbsolutePath());
+                if (ext.equalsIgnoreCase("tif")) {
+                    String layer = FilenameUtils.getBaseName(file.getAbsolutePath());
+                    if (layer.contains("_tamsat")) {
+                        int value = Integer.parseInt(layer.replaceAll("[^0-9]", ""));
+                        layer = "rainfall_map_" + value;
+                    }
+                    geo.publishRaster(workspace, layer, layer, file, projection, style);
+                } else if (ext.equalsIgnoreCase("zip")) {
+                    String layer = FilenameUtils.getBaseName(file.getAbsolutePath());
+                    geo.publishVector(workspace, layer, layer, file, projection, style);
+                }
             }
-        }else{
+        } else {
             System.err.println("Incompatibility with your Java version? Please contact the developer at robertohuru@gmail.com");
         }
 
@@ -177,11 +179,11 @@ public class GeoPub {
         }
         if (dataFolder.isDirectory()) {
             File files[] = dataFolder.listFiles();
-            for (int i = 0; i < files.length; i++) {
-                String ext = FilenameUtils.getExtension(files[i].getAbsolutePath());
+            for (File file : files) {
+                String ext = FilenameUtils.getExtension(file.getAbsolutePath());
                 if (ext.equalsIgnoreCase("tif")) {
-                    String layer = FilenameUtils.getBaseName(files[i].getAbsolutePath());
-                    geo.publishRaster(workSpace, layer, layer, files[i], projection, style);
+                    String layer = FilenameUtils.getBaseName(file.getAbsolutePath());
+                    geo.publishRaster(workSpace, layer, layer, file, projection, style);
                 }
             }
         }
@@ -192,6 +194,14 @@ public class GeoPub {
      */
     public static void main(String[] args) {
         //run(args);
+        /* String[] arguments = {
+        "thesis",
+        "B:\\Software\\wf-engine-api\\media\\dsxoshte1704472996.tif",
+        "B:\\Software\\wf-engine-api\\media\\dsiknbq11704473060.xml",
+        "EPSG:21036",
+        "B:\\Software\\wf-engine-api\\media\\dsfdu3vd1704472996.json",
+        "No"
+        };*/
         maris(args);
     }
 
